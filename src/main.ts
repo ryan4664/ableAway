@@ -1,51 +1,65 @@
 import dotenv from "dotenv";
-import { ParallelScraper } from "./scraper";
+import { ParallelScraper } from "./lib/scraper";
+import { HotelStorage } from "./lib/enhanced_storage";
+import { UrlStatus } from "./types";
 
 dotenv.config();
 
 async function main() {
-  console.log("🚀 Starting parallel hotel scraper!");
+  console.log("🚀 Starting AbleAway accessibility scraper!");
   
+  // Use the enhanced storage system
+  const storage = new HotelStorage();
   const scraper = new ParallelScraper(3); // 3 concurrent workers
   
   // Show initial stats
-  const initialStats = scraper.getStats();
-  console.log(`📊 Database stats: ${initialStats.totalHotels} hotels, ${initialStats.wheelchairAccessible} wheelchair accessible (${initialStats.accessibilityRate.toFixed(1)}%)`);
+  const initialStats = storage.getStats();
+  console.log("📊 Initial Database State:");
+  console.log(`   URLs: ${initialStats.urls.total} total (${initialStats.urls.pending} pending, ${initialStats.urls.successful} successful)`);
+  console.log(`   Hotels: ${initialStats.hotels.total} scraped, ${initialStats.hotels.wheelchairAccessible} accessible (${initialStats.hotels.accessibilityRate.toFixed(1)}%)`);
+  
+  // Get URLs that need scraping from the database
+  const urlsToScrape = storage.getUrlsToScrape([UrlStatus.PENDING, UrlStatus.NEEDS_RETRY], 15);
+  
+  if (urlsToScrape.length === 0) {
+    console.log("🎉 No URLs need scraping! All caught up.");
+    storage.close();
+    scraper.close();
+    return;
+  }
+  
+  console.log(`\n🎯 Found ${urlsToScrape.length} URLs to scrape:`);
+  urlsToScrape.forEach((urlRecord, i) => {
+    const retryInfo = urlRecord.failureCount > 0 ? ` (retry ${urlRecord.failureCount})` : "";
+    console.log(`   ${i + 1}. [${urlRecord.status.toUpperCase()}] ${urlRecord.url}${retryInfo}`);
+  });
 
-  const urls = [
-    "https://www.atlashotel.com/",
-    "https://www.marriott.com/en-us/hotels/yycsh-sheraton-suites-calgary-eau-claire/overview/",
-    "https://www.fairmont.com/palliser-calgary/",
-    "https://www.chateaulevis.com/",
-    "https://www.fairmont.com/empress-victoria/",
-    "https://www.opushotel.com/",
-    "https://www.rosewoodhotels.com/en/hotel-georgia-vancouver",
-    "https://www.parqvancouver.com/",
-    "https://www.sparklinghill.com/",
-    "https://www.hotelgrandpacific.com/",
-    "https://www.chateauvictoria.com/",
-    "https://www.banffjaspercollection.com/hotels/elk-avenue-hotel/",
-    "https://www.banffjaspercollection.com/hotels/banff-caribou-lodge/",
-    "https://www.jwmarriottedmonton.com/",
-    "https://matrixedmonton.com/"
-  ];
+  const urls = urlsToScrape.map(ur => ur.url);
 
   try {
     const results = await scraper.scrapeUrls(urls);
     
     // Show final stats
-    const finalStats = scraper.getStats();
+    const finalStats = storage.getStats();
     console.log(`\n🎉 Scraping complete! Final stats:`);
-    console.log(`   📈 Total hotels: ${finalStats.totalHotels}`);
-    console.log(`   ♿ Wheelchair accessible: ${finalStats.wheelchairAccessible} (${finalStats.accessibilityRate.toFixed(1)}%)`);
+    console.log(`   📈 URLs: ${finalStats.urls.total} total, ${finalStats.urls.successful} successful`);
+    console.log(`   🏨 Hotels: ${finalStats.hotels.total} scraped`);
+    console.log(`   ♿ Accessibility: ${finalStats.hotels.wheelchairAccessible}/${finalStats.hotels.total} (${finalStats.hotels.accessibilityRate.toFixed(1)}%)`);
+    console.log(`   📊 Avg Confidence: ${finalStats.hotels.avgConfidence.toFixed(2)}`);
+    
+    if (finalStats.performance.totalAttempts > 0) {
+      console.log(`   🚀 Success Rate: ${finalStats.performance.successRate.toFixed(1)}%`);
+      console.log(`   ⚡ Avg Response: ${finalStats.performance.avgResponseTime.toFixed(0)}ms`);
+    }
     
     // Export results
-    const exported = scraper.exportResults("results.json");
+    const exported = storage.exportToJson("results.json");
     console.log(`💾 Exported ${exported} records to results.json`);
     
   } catch (err) {
     console.error("❌ Scraping failed:", err);
   } finally {
+    storage.close();
     scraper.close();
   }
 }

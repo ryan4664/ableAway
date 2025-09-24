@@ -1,0 +1,13 @@
+/* Basic styles for the app */
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.accessibility-star {
+  transition: all 0.2s ease;
+}
+
+.accessibility-star:hover {
+  transform: scale(1.1);
+}

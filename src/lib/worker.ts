@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 import OpenAI from "openai";
-import type { AccessibilityFeatures } from "./types";
+import type { AccessibilityFeatures } from "../types";
 import { RetryManager, RetryableError, ErrorType } from "./retry";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

@@ -1,6 +1,6 @@
-import { HotelStorage } from "./storage";
+import { HotelStorage } from "./enhanced_storage";
 import { scrapeUrl, extractFeatures, getRetryStats } from "./worker";
-import type { ScrapeResult } from "./types";
+import type { ScrapeResult } from "../types";
 import type { DetailedError } from "./retry";
 
 export class ParallelScraper {
